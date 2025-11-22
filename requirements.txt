@@ -6,3 +6,6 @@ aiosqlite==0.21.0
 pydantic-settings==2.12.0
 greenlet==3.2.4
 apscheduler==3.10.4
+fluentogram==1.1.6
+sulguk==0.10.1
+redis==5.2.0

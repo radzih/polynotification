@@ -3,9 +3,9 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 from aiogram_dialog import setup_dialogs
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sulguk import AiogramSulgukMiddleware, SULGUK_PARSE_MODE
 
 from src.bootstrap.config import get_settings
 from src.bootstrap.database import create_engine_factory, create_session_maker
@@ -18,11 +18,13 @@ from src.presentation.dialogs.add_market import add_market_dialog
 from src.presentation.dialogs.market_list import market_list_dialog
 from src.presentation.middlewares.db import DbSessionMiddleware
 from src.presentation.middlewares.use_cases import UseCaseMiddleware
+from src.presentation.middlewares.i18n import I18nMiddleware
+from src.infrastructure.i18n.setup import setup_i18n
 
 
 async def main():
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     )
     logger = logging.getLogger(__name__)
@@ -36,14 +38,22 @@ async def main():
     # API Client setup
     polymarket_api = PolymarketApiClient()
     
+    # I18n setup
+    translator_hub = setup_i18n()
+    
     # Bot setup
-    bot = Bot(token=settings.bot_token.get_secret_value(), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        token=settings.bot_token.get_secret_value(),
+        default=DefaultBotProperties(parse_mode=SULGUK_PARSE_MODE),
+    )
+    bot.session.middleware(AiogramSulgukMiddleware())
     dp = Dispatcher()
     
     # Middleware
     dp.update.middleware(DbSessionMiddleware(session_maker))
     dp["polymarket_api"] = polymarket_api
     dp.update.middleware(UseCaseMiddleware())
+    dp.update.middleware(I18nMiddleware(translator_hub))
     
     # Router setup
     errors_router.include_routers(
@@ -63,7 +73,8 @@ async def main():
         session_maker=session_maker,
         polymarket_api=polymarket_api,
         bot=bot,
-        scheduler=scheduler
+        scheduler=scheduler,
+        translator_hub=translator_hub,
     )
     
     await monitor_service.start()

@@ -5,6 +5,7 @@ from typing import List
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fluentogram import TranslatorHub
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.domain.entities.market import MarketDTO, MarketCondition
@@ -20,14 +21,16 @@ class MarketMonitorService:
         polymarket_api: PolymarketApiClient,
         bot: Bot,
         scheduler: AsyncIOScheduler,
+        translator_hub: TranslatorHub,
     ):
         self.session_maker = session_maker
         self.polymarket_api = polymarket_api
         self.bot = bot
         self.scheduler = scheduler
+        self.translator_hub = translator_hub
 
     async def start(self):
-        self.scheduler.add_job(self.check_markets, "interval", seconds=5)
+        self.scheduler.add_job(self.check_markets, "interval", seconds=60)
         self.scheduler.start()
 
     async def check_markets(self):
@@ -94,17 +97,16 @@ class MarketMonitorService:
         await market_repo.update_market_status(market.id, is_active=False)
         
         # Send notification
-        text = (
-            f"🚨 <b>Market Alert!</b>\n\n"
-            f"📉 <b>{market.title or market.market_id}</b>\n"
-            f"Current Price: {current_price:.2f}%\n"
-            f"Target: {market.target_price}%\n\n"
-            f"Monitoring has been disabled."
+        i18n = self.translator_hub.get_translator_by_locale("uk")
+        text = i18n.monitor_alert_text(
+            title=market.title or market.market_id,
+            current_price=f"{current_price:.2f}",
+            target=market.target_price,
         )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔗 View on Polymarket", url=market.url)],
-            [InlineKeyboardButton(text="🔄 Re-enable Monitoring", callback_data=f"enable_mon:{market.id}")]
+            [InlineKeyboardButton(text=i18n.monitor_alert_btn_open(), url=market.url)],
+            [InlineKeyboardButton(text=i18n.monitor_alert_btn_resume(), callback_data=f"enable_mon:{market.id}")]
         ])
         
         try:

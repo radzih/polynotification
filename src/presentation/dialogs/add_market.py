@@ -7,6 +7,7 @@ from aiogram_dialog import Dialog, DialogManager, Window, StartMode
 from aiogram_dialog.widgets.input import MessageInput
 from aiogram_dialog.widgets.kbd import Button, Column, Group, Cancel, ScrollingGroup, Select
 from aiogram_dialog.widgets.text import Const, Format
+from fluentogram import TranslatorRunner
 
 from src.presentation.states import AddMarketSG, MarketListSG
 from src.use_cases.market.add import AddMarketUseCase
@@ -27,7 +28,29 @@ async def on_dialog_start(start_data: dict, manager: DialogManager):
 
 
 async def get_market_options(dialog_manager: DialogManager, **kwargs):
-    return {"markets": dialog_manager.dialog_data.get("markets", [])}
+    i18n: TranslatorRunner = dialog_manager.middleware_data["i18n"]
+    return {
+        "markets": dialog_manager.dialog_data.get("markets", []),
+        "text_select_market": i18n.add_market_select(),
+        "text_cancel": i18n.common_cancel()
+    }
+
+
+async def get_price_strings(dialog_manager: DialogManager, **kwargs):
+    i18n: TranslatorRunner = dialog_manager.middleware_data["i18n"]
+    return {
+        "text_select_price": i18n.add_market_select_price(),
+        "text_cancel": i18n.common_cancel()
+    }
+
+
+async def get_exists_strings(dialog_manager: DialogManager, **kwargs):
+    i18n: TranslatorRunner = dialog_manager.middleware_data["i18n"]
+    return {
+        "text_already_exists": i18n.add_market_already_exists(),
+        "text_open_market": i18n.add_market_open_btn(),
+        "text_close": i18n.common_close()
+    }
 
 
 async def on_market_option_selected(c: CallbackQuery, widget: Any, manager: DialogManager, item_id: str):
@@ -51,21 +74,23 @@ async def on_price_selected(c: CallbackQuery, widget: Any, manager: DialogManage
 
 
 async def on_manual_price_input(message: Message, widget: MessageInput, manager: DialogManager):
+    i18n: TranslatorRunner = manager.middleware_data["i18n"]
     try:
         price = int(message.text)
         await _save_market(manager, price)
     except ValueError:
-        await message.answer("Please enter a valid integer number.")
+        await message.answer(i18n.err_invalid_number())
 
 
 async def _save_market(manager: DialogManager, price: int):
     add_market_use_case: AddMarketUseCase = manager.middleware_data["add_market_use_case"]
+    i18n: TranslatorRunner = manager.middleware_data["i18n"]
     url = manager.dialog_data["url"]
     market_id = manager.dialog_data["market_id"]
     user_id = manager.event.from_user.id
     
     # Notify user we are checking price to set condition
-    await manager.event.answer("Saving market and determining alert condition...")
+    await manager.event.answer(i18n.add_market_saving())
     
     try:
         await add_market_use_case(
@@ -76,7 +101,7 @@ async def _save_market(manager: DialogManager, price: int):
         )
         await manager.done()
         
-        success_text = f"Market added! Monitoring for price hits at {price}%."
+        success_text = i18n.add_market_success(price=price)
         
         if isinstance(manager.event, CallbackQuery):
             try:
@@ -114,7 +139,7 @@ def get_price_buttons():
 
 add_market_dialog = Dialog(
     Window(
-        Const("Select a market to track:"),
+        Format("{text_select_market}"),
         ScrollingGroup(
             Select(
                 Format("{item[question]}"),
@@ -128,25 +153,27 @@ add_market_dialog = Dialog(
             height=10,
             hide_on_single_page=True,
         ),
-        Cancel(Const("Cancel")),
+        Cancel(Format("{text_cancel}")),
         state=AddMarketSG.selecting_market,
         getter=get_market_options,
     ),
     Window(
-        Const("Select target price percentage for notification or enter manually:"),
+        Format("{text_select_price}"),
         Group(
             get_price_buttons(),
             width=4,
         ),
         MessageInput(on_manual_price_input),
-        Cancel(Const("Cancel")),
+        Cancel(Format("{text_cancel}")),
         state=AddMarketSG.selecting_price,
+        getter=get_price_strings,
     ),
     Window(
-        Const("This market is already in your list."),
-        Button(Const("Open Market"), id="open_existing", on_click=on_open_existing_market),
-        Cancel(Const("Close")),
+        Format("{text_already_exists}"),
+        Button(Format("{text_open_market}"), id="open_existing", on_click=on_open_existing_market),
+        Cancel(Format("{text_close}")),
         state=AddMarketSG.market_exists,
+        getter=get_exists_strings,
     ),
     on_start=on_dialog_start,
 )

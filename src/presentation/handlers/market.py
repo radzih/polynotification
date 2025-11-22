@@ -6,6 +6,7 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
 from aiogram_dialog import DialogManager, StartMode
+from fluentogram import TranslatorRunner
 
 from src.presentation.states import AddMarketSG, MarketListSG
 from src.use_cases.market.add import POLYMARKET_URL_PATTERN
@@ -20,10 +21,11 @@ router = Router()
 
 @router.message(F.text.regexp(POLYMARKET_URL_PATTERN))
 async def market_url_handler(
-    message: Message, 
+    message: Message,
     dialog_manager: DialogManager,
     check_market_exists_use_case: CheckMarketExistsUseCase,
-    get_event_markets_use_case: GetEventMarketsUseCase
+    get_event_markets_use_case: GetEventMarketsUseCase,
+    i18n: TranslatorRunner,
 ):
     url = message.text.strip()
     match = re.search(POLYMARKET_URL_PATTERN, url)
@@ -33,11 +35,11 @@ async def market_url_handler(
     try:
         markets = await get_event_markets_use_case(slug)
     except (MarketNotFoundError, MarketApiError) as e:
-        await message.answer(f"Error fetching event: {str(e)}")
+        await message.answer(i18n.err_event_fetch(error=str(e)))
         return
 
     if not markets:
-        await message.answer("No markets found for this event.")
+        await message.answer(i18n.err_no_markets())
         return
 
     if len(markets) == 1:
@@ -71,8 +73,12 @@ async def market_url_handler(
 
 
 @router.message(Command("add"))
-async def add_market_command(message: Message, dialog_manager: DialogManager):
-    await message.answer("Please send the Polymarket event URL.")
+async def add_market_command(
+    message: Message,
+    dialog_manager: DialogManager,
+    i18n: TranslatorRunner,
+):
+    await message.answer(i18n.add_market_prompt_url())
 
 
 @router.message(Command("markets"))
@@ -85,8 +91,9 @@ async def list_markets_handler(message: Message, dialog_manager: DialogManager):
 
 @router.callback_query(F.data.startswith("enable_mon:"))
 async def enable_monitoring_callback(
-    callback: CallbackQuery, 
-    toggle_monitoring_use_case: ToggleMonitoringUseCase
+    callback: CallbackQuery,
+    toggle_monitoring_use_case: ToggleMonitoringUseCase,
+    i18n: TranslatorRunner,
 ):
     market_id = int(callback.data.split(":")[1])
     
@@ -96,11 +103,11 @@ async def enable_monitoring_callback(
     updated_market = await toggle_monitoring_use_case(market_id, is_active=True)
     
     if updated_market:
-        await callback.answer("Monitoring re-enabled! ✅")
+        await callback.answer(i18n.monitoring_reenabled_alert())
         try:
             await callback.message.edit_reply_markup(reply_markup=None)
-            await callback.message.reply("✅ Monitoring re-enabled for this market.")
+            await callback.message.reply(i18n.monitoring_reenabled_message())
         except Exception as e:
             logger.error(f"Failed to update message: {e}")
     else:
-        await callback.answer("Market not found or error.", show_alert=True)
+        await callback.answer(i18n.monitoring_reenable_failed(), show_alert=True)

@@ -6,6 +6,8 @@ from pydantic import SecretStr
 class Settings(BaseSettings):
     bot_token: SecretStr
     database_url: str = "sqlite+aiosqlite:///db.sqlite3"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
 
     model_config = SettingsConfigDict(
         env_file=".env",
