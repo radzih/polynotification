@@ -1,13 +1,15 @@
 import asyncio
 import logging
+from urllib.parse import quote
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.fsm.storage.redis import DefaultKeyBuilder, RedisStorage
 from aiogram_dialog import setup_dialogs
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sulguk import AiogramSulgukMiddleware, SULGUK_PARSE_MODE
 
-from src.bootstrap.config import get_settings
+from src.bootstrap.config import Settings, get_settings
 from src.bootstrap.database import create_engine_factory, create_session_maker
 from src.infrastructure.polymarket.client import PolymarketApiClient
 from src.infrastructure.scheduler.monitoring import MarketMonitorService
@@ -20,6 +22,16 @@ from src.presentation.middlewares.db import DbSessionMiddleware
 from src.presentation.middlewares.use_cases import UseCaseMiddleware
 from src.presentation.middlewares.i18n import I18nMiddleware
 from src.infrastructure.i18n.setup import setup_i18n
+
+
+def build_redis_dsn(settings: Settings) -> str:
+    if settings.redis_password:
+        password = quote(settings.redis_password.get_secret_value(), safe="")
+        return (
+            f"redis://:{password}@"
+            f"{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+        )
+    return f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
 
 
 async def main():
@@ -47,7 +59,11 @@ async def main():
         default=DefaultBotProperties(parse_mode=SULGUK_PARSE_MODE),
     )
     bot.session.middleware(AiogramSulgukMiddleware())
-    dp = Dispatcher()
+    storage = RedisStorage.from_url(
+        build_redis_dsn(settings),
+        key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True),
+    )
+    dp = Dispatcher(storage=storage)
     
     # Middleware
     dp.update.middleware(DbSessionMiddleware(session_maker))
@@ -84,6 +100,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         await polymarket_api.close()
+        await dp.storage.close()
         await engine.dispose()
 
 

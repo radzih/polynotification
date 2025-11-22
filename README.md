@@ -35,6 +35,7 @@ src/
 
 - Python 3.10+
 - Git
+- Redis 7+ (local instance or via `docker-compose`)
 
 ### Installation
 
@@ -62,7 +63,7 @@ src/
    ```bash
    cp env.example .env
    ```
-   Edit `.env` and set your `BOT_TOKEN` obtained from @BotFather.
+   Edit `.env` and set your `BOT_TOKEN` obtained from @BotFather. You can also override `DATABASE_URL` or any of the `REDIS_*` values if you're not using the defaults (host `localhost`, port `6379`, DB `0`, optional password).
 
 2. **Database Setup**
    Apply the database migrations to create the SQLite database and tables:
@@ -77,6 +78,10 @@ Run the application as a module:
 ```bash
 python -m src.main
 ```
+
+### Redis State Storage
+
+FSM and dialog states are persisted in Redis. If you use the provided `docker-compose.yml`, a Redis service is already defined and the bot container is configured to talk to it. For local development without Docker, ensure a Redis instance is running and reachable via the connection parameters defined in `.env`.
 
 ## 🛠 Development
 
