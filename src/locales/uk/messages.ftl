@@ -16,7 +16,7 @@ monitoring_reenabled_alert = Моніторинг відновлено! ✅
 monitoring_reenabled_message = ✅ Моніторинг цієї події знову активний.
 monitoring_reenable_failed = Не вдалося відновити моніторинг. Спробуйте пізніше.
 
-market_list_title = <b>Ваші відстежувані події</b>⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+market_list_title = <b>Ваші відстежувані події</b>⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀<br>
 market_list_empty = Подій не знайдено.
 market_list_status_active = ✅ Відстежується
 market_list_status_paused = ⏸️ Відстеження призупинено
