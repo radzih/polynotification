@@ -49,8 +49,6 @@ venv.bak/
 db.sqlite3
 data/
 
-# Alembic
-alembic.ini
 
 # Logs
 *.log
