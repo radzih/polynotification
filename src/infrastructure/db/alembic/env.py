@@ -10,6 +10,7 @@ from alembic import context
 from src.bootstrap.config import get_settings
 from src.infrastructure.db.models.base import Base
 from src.infrastructure.db.models.user import User  # Import User model to register with metadata
+from src.infrastructure.db.models.market import Market  # Import Market model
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
