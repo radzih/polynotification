@@ -54,6 +54,7 @@ class PolymarketApiClient(PolymarketAPI):
                         active=m.get("active", True)
                     ) 
                     for m in markets_data
+                    if m.get("closed") is False
                 ]
         except aiohttp.ClientError as e:
             raise MarketApiError(f"Network error: {str(e)}")
