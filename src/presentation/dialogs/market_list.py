@@ -1,3 +1,4 @@
+import logging
 import operator
 from typing import Any
 
@@ -8,13 +9,15 @@ from aiogram_dialog.widgets.kbd import Button, Cancel, ScrollingGroup, Select, S
 from aiogram_dialog.widgets.text import Const, Format
 from fluentogram import TranslatorRunner
 
-from src.domain.entities.market import MarketDTO
 from src.presentation.states import MarketListSG
 from src.use_cases.market.list import ListUserMarketsUseCase
 from src.use_cases.market.update import UpdateMarketUseCase
 from src.use_cases.market.delete import DeleteMarketUseCase
 from src.use_cases.market.get import GetMarketUseCase
 from src.use_cases.market.toggle_monitoring import ToggleMonitoringUseCase
+
+
+logger = logging.getLogger(__name__)
 
 
 async def on_dialog_start(start_data: dict, manager: DialogManager):
@@ -38,13 +41,29 @@ async def get_markets(dialog_manager: DialogManager, **kwargs):
 async def get_selected_market(dialog_manager: DialogManager, **kwargs):
     get_use_case: GetMarketUseCase = dialog_manager.middleware_data["get_market_use_case"]
     i18n: TranslatorRunner = dialog_manager.middleware_data["i18n"]
+    polymarket_api = dialog_manager.middleware_data.get("polymarket_api")
     market_id = dialog_manager.dialog_data.get("selected_market_id")
     if not market_id:
         return {}
     market = await get_use_case(market_id)
     if not market:
         return {}
-        
+
+    current_price_text = "N/A"
+    if polymarket_api:
+        try:
+            market_info = await polymarket_api.get_market_info(market.market_id)
+            current_price = market_info.price * 100  # Convert 0-1 price to cents/percent
+            current_price_text = f"{current_price:.2f}"
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch current price for market %s: %s",
+                market.market_id,
+                exc,
+            )
+    else:
+        logger.warning("Polymarket API client is missing in middleware data")
+
     status_icon = "✅" if market.is_active else "⏸️"
     status_text = i18n.market_list_status_active() if market.is_active else i18n.market_list_status_paused()
     
@@ -56,7 +75,8 @@ async def get_selected_market(dialog_manager: DialogManager, **kwargs):
             title=market.title,
             icon=status_icon,
             status=status_text,
-            price=market.target_price
+            price=market.target_price,
+            current_price=current_price_text,
         ),
         "status_icon": status_icon,
         "status_text": status_text,
